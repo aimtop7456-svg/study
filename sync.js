@@ -35,7 +35,7 @@
     setStatus("☁ 저장 중…", "saving");
     const { error } = await client.from("study_progress").upsert({
       user_id: currentUser.id,
-      stars: [...stars].sort((a, b) => a - b),
+      stars: [...stars].sort((a, b) => String(a).localeCompare(String(b), "ko")),
       progress: window.studyProgress,
       updated_at: new Date().toISOString(),
     });
