@@ -61,7 +61,8 @@
       return;
     }
 
-    const merged = new Set([...stars, ...(data?.stars || [])].map(Number));
+    const normalizeStarId = (value) => /^\d+$/.test(String(value)) ? Number(value) : String(value);
+    const merged = new Set([...stars, ...(data?.stars || [])].map(normalizeStarId));
     stars = merged;
     localStorage.setItem(LOCAL_STARS_KEY, JSON.stringify([...stars]));
     const remoteProgress = data?.progress || {};
