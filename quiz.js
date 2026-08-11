@@ -207,8 +207,8 @@
     const isWrong=answered&&selected!==question.a;
     const result=answers&&!answered?`정답 ${symbols[question.a]}`:isWrong?`오답입니다. 정답은 ${symbols[question.a]}입니다.`:"정답입니다.";
     const supplement=window.getEnhancedExplanation?.(question)||"";
-    const baseExplanation=question.examDate?`<b>정답 보기:</b> ${symbols[question.a]} ${question.opts[question.a]}`:question.exp;
-    const explanationLabel=question.examDate&&!window.hasReviewedExplanation?.(question)?"관련 개념 참고(문항별 정답 근거 검토 전)":"정답 근거";
+    const baseExplanation=question.examDate?"":question.exp;
+    const explanationLabel=question.examDate&&!window.hasReviewedExplanation?.(question)?"해설 검토 누락":"정답 근거";
     return `<div class="answer ${isWrong?"wrong-answer":""}"><b class="answer-result">${result}</b>${baseExplanation}${supplement?`<div class="explanation-detail"><strong>${explanationLabel}</strong>${supplement}</div>`:""}<div class="src">${question.source}</div></div>`;
   };
   const progressBadge = (id) => {
@@ -225,9 +225,11 @@
   };
 
   window.render = () => {
+    const countElement=document.getElementById("count");
+    if(!countElement||!list||!batchFooter)return;
     const shown=filtered();
     const answeredInBatch=data.filter((q)=>selectedAnswers.has(q.id)||(!examMode&&window.studyProgress[q.id])).length;
-    document.getElementById("count").textContent=`표시 ${shown.length}문제 · 현재 묶음 ${answeredInBatch}/${data.length} · 전체 학습 ${completedCount()}/${allQuestions.length}`;
+    countElement.textContent=`표시 ${shown.length}문제 · 현재 묶음 ${answeredInBatch}/${data.length} · 전체 학습 ${completedCount()}/${allQuestions.length}`;
     list.className=answers?"":"quiz-mode";
     const examTitle=currentView==="mock"?`빈출 모의고사 ${Number(currentYear)+1}회`:currentView==="actual"?`${currentYear.slice(0,4)}-${currentYear.slice(4,6)}-${currentYear.slice(6)} 실제 기출 원문`:"";
     const banner=["mock","actual"].includes(currentView)?`<div class="exam-banner ${currentView==="actual"?"actual-exam-banner":""}"><b>${examTitle}</b> · 보기를 선택하면 즉시 채점되고 핵심 해설이 표시됩니다.</div>`:"";

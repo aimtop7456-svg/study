@@ -1,5 +1,6 @@
 (() => {
   const actualExplanations = {
+    ...(window.REVIEWED_ACTUAL_EXPLANATIONS || {}),
     "actual-20200822-01": "태양전지는 온도가 내려가면 단락전류(Isc)가 조금 감소하는 반면 개방전압(Voc)은 상승한다. 전압 상승의 영향이 더 크므로 일반적으로 저온에서 최대출력도 증가한다. 따라서 ‘온도가 내려가면 단락전류는 감소하고 개방전압은 상승한다’는 ①이 옳다.",
   };
   const topicNotes = [
