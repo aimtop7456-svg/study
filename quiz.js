@@ -14,6 +14,11 @@
     .answer.wrong-answer{border-left-color:#c43d4d;background:#fff3f4}
     .answer.wrong-answer b{color:#b22939}
     .answer-result{display:block;margin-bottom:5px;font-weight:800}
+    .explanation-detail{margin-top:9px;padding-top:9px;border-top:1px solid #cfe5db;color:#26354b}
+    .wrong-answer .explanation-detail{border-top-color:#eccbd0}
+    .explanation-detail strong{display:block;margin-bottom:4px;color:#087a55}
+    .wrong-answer .explanation-detail strong{color:#9d2635}
+    .choice-review{margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.68);font-size:12px}
     .type-guide{margin-top:9px;padding-top:9px;border-top:1px dashed #d9c78f}
   `;
   document.head.appendChild(style);
@@ -62,10 +67,18 @@
       : isWrong
         ? `오답입니다. 정답은 ${symbols[question.a]}입니다.`
         : "정답입니다.";
+    const supplement = window.getEnhancedExplanation?.(question) || "";
+    const choiceReview = answered
+      ? `<div class="choice-review"><b>선택지 확인</b><br>
+          내가 고른 답: ${symbols[selected]} ${question.opts[selected]}<br>
+          정답: ${symbols[question.a]} ${question.opts[question.a]}</div>`
+      : "";
 
     return `<div class="answer ${isWrong ? "wrong-answer" : ""}">
       <b class="answer-result">${result}</b>
       ${question.exp}
+      ${supplement ? `<div class="explanation-detail"><strong>시험 포인트</strong>${supplement}</div>` : ""}
+      ${choiceReview}
       <div class="src">${question.source}</div>
     </div>`;
   };
