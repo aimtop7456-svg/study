@@ -1,6 +1,12 @@
 (() => {
-  const selectedAnswers = new Map();
+  const PAGE_SIZE = 20;
+  const PROGRESS_KEY = "pvprogress";
   const symbols = "①②③④";
+  const selectedAnswers = new Map();
+  let currentView = "unseen";
+  let currentYear = null;
+
+  window.studyProgress ||= JSON.parse(localStorage.getItem(PROGRESS_KEY) || "{}");
 
   document.querySelector('button[onclick="shuffleAll()"]')?.remove();
 
@@ -20,8 +26,27 @@
     .wrong-answer .explanation-detail strong{color:#9d2635}
     .choice-review{margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.68);font-size:12px}
     .type-guide{margin-top:9px;padding-top:9px;border-top:1px dashed #d9c78f}
+    .progress-badge{border-radius:999px;padding:3px 7px;background:#eef6f2;color:#087a55}
+    .progress-badge.wrong{background:#fff0f1;color:#b22939}
+    .study-nav{background:#e9efff;color:#2448a8}.study-nav.active{background:#2457e6;color:#fff;border-color:#2457e6}
+    .year-button{display:block;width:100%;text-align:left;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--blue);font-weight:700}
   `;
   document.head.appendChild(style);
+
+  const tools = document.querySelector(".tools");
+  const firstAction = tools?.querySelector("button");
+  [
+    ["이어풀기", "showUnseen()", "unseen"],
+    ["오답 복습", "showWrong()", "wrong"],
+    ["풀어본 문제", "showSeen()", "seen"],
+  ].forEach(([label, handler, view]) => {
+    const button = document.createElement("button");
+    button.className = "study-nav";
+    button.dataset.view = view;
+    button.setAttribute("onclick", handler);
+    button.textContent = label;
+    tools?.insertBefore(button, firstAction);
+  });
 
   const firstNotice = document.querySelector(".notice");
   firstNotice?.insertAdjacentHTML(
@@ -34,6 +59,84 @@
       계산=공식·수치 계산 ·
       회독=빠른 OX형 복습 문제</div>`,
   );
+
+  const archive = document.getElementById("archive");
+  if (archive?.parentElement) {
+    archive.parentElement.innerHTML = `
+      <b>연도별 기출 경향 모의세트 (사이트 내부 재구성)</b><br>
+      외부 CBT 사이트로 이동하지 않습니다. 아래 세트는 해당 연도의 실제 원문을 복제한 것이 아니라,
+      공개 기출의 출제 포인트와 현재 문제은행을 바탕으로 구성한 80문제 연습세트입니다.
+      <div id="archive" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:10px"></div>`;
+    const internalArchive = document.getElementById("archive");
+    for (let year = 2014; year <= 2020; year += 1) {
+      internalArchive.insertAdjacentHTML(
+        "beforeend",
+        `<button class="year-button" onclick="openYearSet(${year})">${year}년 기출 경향 80문제 풀기</button>`,
+      );
+    }
+  }
+
+  const secondStat = document.querySelector(".stats .pill:nth-child(2)");
+  if (secondStat) secondStat.textContent = "자체 학습문제 280 · 외부 CBT 이동 없음";
+
+  const progressEntries = () => Object.values(window.studyProgress || {});
+  const completedCount = () => progressEntries().length;
+  const wrongCount = () => progressEntries().filter((entry) => entry && !entry.correct).length;
+
+  const updateProgressStat = () => {
+    const thirdStat = document.querySelector(".stats .pill:nth-child(3)");
+    if (thirdStat) {
+      thirdStat.textContent = `풀이 완료 ${completedCount()}/${Q.length} · 현재 오답 ${wrongCount()}문제 · 자동 동기화`;
+    }
+    document.querySelectorAll(".study-nav").forEach((button) => {
+      button.classList.toggle("active", button.dataset.view === currentView);
+    });
+  };
+
+  const resetControls = () => {
+    cat.value = "all";
+    tag.value = "all";
+    search.value = "";
+    selectedAnswers.clear();
+    answers = false;
+  };
+
+  const seededScore = (id, year) => {
+    let value = Math.imul(id + year, 2654435761) >>> 0;
+    value ^= value >>> 16;
+    return value >>> 0;
+  };
+
+  const buildYearSet = (year) => {
+    const groups = {};
+    Q.forEach((question) => (groups[question.subject] ??= []).push(question));
+    return Object.values(groups).flatMap((group) =>
+      [...group].sort((a, b) => seededScore(a.id, year) - seededScore(b.id, year)).slice(0, 20),
+    );
+  };
+
+  const setView = (view, year = null) => {
+    currentView = view;
+    currentYear = year;
+    resetControls();
+    const progress = window.studyProgress || {};
+
+    if (view === "unseen") data = Q.filter((question) => !progress[question.id]).slice(0, PAGE_SIZE);
+    if (view === "wrong") data = Q.filter((question) => progress[question.id] && !progress[question.id].correct);
+    if (view === "seen") data = Q.filter((question) => progress[question.id]);
+    if (view === "stars") data = Q.filter((question) => stars.has(question.id));
+    if (view === "all") data = [...Q];
+    if (view === "year") data = buildYearSet(year);
+    if (view === "mock") {
+      const groups = {};
+      Q.forEach((question) => (groups[question.subject] ??= []).push(question));
+      data = Object.values(groups).flatMap((group) =>
+        [...group].sort(() => Math.random() - 0.5).slice(0, 20),
+      );
+    }
+    render();
+    scrollTo(0, 0);
+  };
 
   const optionMarkup = (question, option, optionIndex) => {
     const selected = selectedAnswers.get(question.id);
@@ -83,15 +186,35 @@
     </div>`;
   };
 
+  const progressBadge = (id) => {
+    const entry = window.studyProgress?.[id];
+    if (!entry) return '<span class="progress-badge">처음 보는 문제</span>';
+    return `<span class="progress-badge ${entry.correct ? "" : "wrong"}">
+      ${entry.attempts || 1}회 풀이 · 최근 ${entry.correct ? "정답" : "오답"}
+    </span>`;
+  };
+
   window.answerQuestion = (id, optionIndex) => {
     if (answers || selectedAnswers.has(id)) return;
+    const question = Q.find((item) => item.id === id);
+    if (!question) return;
     selectedAnswers.set(id, optionIndex);
+    const previous = window.studyProgress[id] || {};
+    window.studyProgress[id] = {
+      attempts: (previous.attempts || 0) + 1,
+      correct: optionIndex === question.a,
+      lastAnswer: optionIndex,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(window.studyProgress));
+    window.dispatchEvent(new CustomEvent("study-progress-changed"));
     render();
   };
 
   window.render = () => {
     const filteredQuestions = filtered();
-    document.getElementById("count").textContent = `표시 ${filteredQuestions.length}문제`;
+    document.getElementById("count").textContent =
+      `표시 ${filteredQuestions.length}문제 · 완료 ${completedCount()}/${Q.length}`;
     list.className = answers ? "" : "quiz-mode";
     list.innerHTML = filteredQuestions.length
       ? filteredQuestions
@@ -101,6 +224,7 @@
                 <span class="tag">${question.subject}</span>
                 <span class="tag">${question.tag}</span>
                 <span>#${question.id}</span>
+                ${progressBadge(question.id)}
                 <button class="star" onclick="star(${question.id})">${stars.has(question.id) ? "★" : "☆"}</button>
               </div>
               <div class="qt">Q${index + 1}. ${question.q}</div>
@@ -109,10 +233,15 @@
             </article>`,
           )
           .join("")
-      : '<div class="empty">조건에 맞는 문제가 없습니다.</div>';
+      : `<div class="empty">
+          ${currentView === "unseen"
+            ? "아직 풀지 않은 문제를 모두 완료했습니다. 오답 복습으로 이동해 보세요."
+            : "조건에 맞는 문제가 없습니다."}
+        </div>`;
 
     const toggleButton = document.querySelector('button[onclick="toggleAnswers()"]');
     if (toggleButton) toggleButton.textContent = answers ? "정답 숨기기" : "정답 모두 보기";
+    updateProgressStat();
   };
 
   window.toggleAnswers = () => {
@@ -120,6 +249,14 @@
     if (!answers) selectedAnswers.clear();
     render();
   };
+  window.showUnseen = () => setView("unseen");
+  window.showWrong = () => setView("wrong");
+  window.showSeen = () => setView("seen");
+  window.showStars = () => setView("stars");
+  window.resetAll = () => setView("all");
+  window.mock = () => setView("mock");
+  window.openYearSet = (year) => setView("year", year);
+  window.refreshCurrentStudyView = () => setView(currentView, currentYear);
 
-  render();
+  setView("unseen");
 })();

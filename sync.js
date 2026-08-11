@@ -2,9 +2,11 @@
   const SUPABASE_URL = "https://wqweuneidebxaostkpor.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C9QK99yaSN0gJqZvmLZB_A_W4KEVdaA";
   const LOCAL_STARS_KEY = "pvstars";
+  const LOCAL_PROGRESS_KEY = "pvprogress";
   let client;
   let currentUser;
   let syncTimer;
+  window.studyProgress = JSON.parse(localStorage.getItem(LOCAL_PROGRESS_KEY) || "{}");
 
   const syncButton = document.createElement("button");
   syncButton.type = "button";
@@ -33,6 +35,7 @@
     const { error } = await client.from("study_progress").upsert({
       user_id: currentUser.id,
       stars: [...stars].sort((a, b) => a - b),
+      progress: window.studyProgress,
       updated_at: new Date().toISOString(),
     });
     setStatus(error ? "⚠ 동기화 오류" : "☁ 동기화됨", error ? "error" : "ready");
@@ -48,7 +51,7 @@
     setStatus("☁ 불러오는 중…", "saving");
     const { data, error } = await client
       .from("study_progress")
-      .select("stars")
+      .select("stars, progress")
       .eq("user_id", currentUser.id)
       .maybeSingle();
 
@@ -60,7 +63,18 @@
     const merged = new Set([...stars, ...(data?.stars || [])].map(Number));
     stars = merged;
     localStorage.setItem(LOCAL_STARS_KEY, JSON.stringify([...stars]));
-    render();
+    const remoteProgress = data?.progress || {};
+    const localProgress = window.studyProgress || {};
+    for (const [id, remoteEntry] of Object.entries(remoteProgress)) {
+      const localEntry = localProgress[id];
+      if (!localEntry || (remoteEntry.updatedAt || 0) > (localEntry.updatedAt || 0)) {
+        localProgress[id] = remoteEntry;
+      }
+    }
+    window.studyProgress = localProgress;
+    localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(localProgress));
+    window.refreshCurrentStudyView?.();
+    if (!window.refreshCurrentStudyView) render();
     await saveToCloud();
   };
 
@@ -142,6 +156,7 @@
       originalStar(id);
       queueSave();
     };
+    window.addEventListener("study-progress-changed", queueSave);
 
     syncButton.addEventListener("click", async () => {
       if (!currentUser) {
