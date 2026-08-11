@@ -6,12 +6,13 @@
   let client;
   let currentUser;
   let syncTimer;
+  window.cloudSyncActive = false;
   window.studyProgress = JSON.parse(localStorage.getItem(LOCAL_PROGRESS_KEY) || "{}");
 
   const syncButton = document.createElement("button");
   syncButton.type = "button";
   syncButton.className = "sync-button";
-  syncButton.textContent = "☁ 기기 동기화";
+  syncButton.textContent = "☁ 클라우드 동기화";
 
   const setStatus = (label, state = "") => {
     syncButton.textContent = label;
@@ -80,13 +81,16 @@
 
   const updateSession = async (session) => {
     currentUser = session?.user || null;
+    window.cloudSyncActive = Boolean(currentUser);
     if (!currentUser) {
-      setStatus("☁ 기기 동기화");
+      setStatus("☁ 클라우드 동기화");
       syncButton.title = "휴대폰과 PC의 즐겨찾기를 동기화합니다";
+      window.render?.();
       return;
     }
     syncButton.title = `${currentUser.email} · 클릭하면 로그아웃`;
     await loadAndMerge();
+    window.render?.();
   };
 
   const openLogin = () => {

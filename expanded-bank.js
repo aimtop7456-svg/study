@@ -15,23 +15,33 @@
   };
 
   const frames = [
+    (question) => `“${question}” 문항의 정답을 판단하는 핵심 근거로 가장 적절한 것은?`,
     (question) => `현장 적용 상황을 가정할 때, 다음 물음에 가장 적절한 것은? ${question}`,
-    (question) => `개념을 다른 조건에도 적용하기 위한 판단으로 옳은 것은? ${question}`,
+  ];
+  const rationaleDistractors = [
+    "관련 값은 운전 조건과 관계없이 항상 일정하기 때문이다.",
+    "설비 안전 기준보다 작업 편의성을 우선해야 하기 때문이다.",
+    "모든 회로에서 전압과 전류가 언제나 동시에 증가하기 때문이다.",
   ];
 
   original.forEach((base, index) => {
     frames.forEach((frame, variant) => {
       const id = 281 + index * 2 + variant;
-      const choice = shuffled(base.opts, base.a, id);
+      const rationaleMode = variant === 0;
+      const choice = rationaleMode
+        ? shuffled([base.exp, ...rationaleDistractors], 0, id)
+        : shuffled(base.opts, base.a, id);
       Q.push({
         id,
         subject: base.subject,
         q: frame(base.q),
         opts: choice.opts,
         a: choice.a,
-        exp: `${base.exp} 보기의 순서나 표현이 달라져도 핵심 원리와 적용 조건을 기준으로 판단해야 한다.`,
-        tag: base.tag === "회독" ? "핵심" : base.tag,
-        source: `자체 재구성 · 개념 응용 (기반문항 #${base.id})`,
+        exp: rationaleMode
+          ? `핵심 근거는 다음과 같다. ${base.exp}`
+          : `${base.exp} 보기의 순서나 표현이 달라져도 핵심 원리와 적용 조건을 기준으로 판단해야 한다.`,
+        tag: rationaleMode || base.tag === "회독" ? "핵심" : base.tag,
+        source: `자체 재구성 · ${rationaleMode ? "근거 판단" : "현장 응용"} (기반문항 #${base.id})`,
       });
     });
   });
