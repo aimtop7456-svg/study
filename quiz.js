@@ -40,7 +40,7 @@
     const answered = selected !== undefined;
     const correct = optionIndex === question.a;
     const selectedWrong = answered && optionIndex === selected && !correct;
-    const revealCorrect = answers || (answered && correct);
+    const revealCorrect = correct && (answers || answered);
     const classNames = ["opt"];
     if (revealCorrect) classNames.push("correct");
     if (selectedWrong) classNames.push("wrong");
