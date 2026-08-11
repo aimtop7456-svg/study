@@ -18,7 +18,8 @@
   const wordFrequency = new Map();
   (actualCorpus.match(/[가-힣A-Za-z0-9]{2,}/g)||[]).forEach((word)=>wordFrequency.set(word,(wordFrequency.get(word)||0)+1));
   const frequencyScore = (q) => [...new Set(`${q.q} ${q.opts.join(" ")}`.match(/[가-힣A-Za-z0-9]{2,}/g)||[])].reduce((sum,word)=>sum+(wordFrequency.get(word)||0),0);
-  const mockCandidates = [...Q];
+  // 정답을 질문 안에서 직접 알려 주는 초기 회독형 문항은 모의고사 후보에서 제외한다.
+  const mockCandidates = [...Q].filter((q)=>!q.q.includes("정답 개념은"));
   const mockBank = [...new Set(mockCandidates.map((q)=>q.subject))].flatMap((subject)=>
     mockCandidates.filter((q)=>q.subject===subject).sort((a,b)=>frequencyScore(b)-frequencyScore(a)||a.id-b.id).slice(0,60),
   );
