@@ -12,6 +12,7 @@
 
   const style = document.createElement("style");
   style.textContent = `
+    header{position:relative}
     button.opt{display:block;width:100%;min-height:44px;text-align:left;color:inherit;cursor:pointer}
     button.opt:hover:not(:disabled){border-color:#a8b6d2;background:#f0f3f9}
     button.opt:focus-visible{outline:3px solid rgba(36,87,230,.25);outline-offset:2px}
@@ -24,12 +25,17 @@
     .wrong-answer .explanation-detail{border-top-color:#eccbd0}
     .explanation-detail strong{display:block;margin-bottom:4px;color:#087a55}
     .wrong-answer .explanation-detail strong{color:#9d2635}
-    .choice-review{margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.68);font-size:12px}
     .type-guide{margin-top:9px;padding-top:9px;border-top:1px dashed #d9c78f}
     .progress-badge{border-radius:999px;padding:3px 7px;background:#eef6f2;color:#087a55}
     .progress-badge.wrong{background:#fff0f1;color:#b22939}
     .study-nav{background:#e9efff;color:#2448a8}.study-nav.active{background:#2457e6;color:#fff;border-color:#2457e6}
     .year-button{display:block;width:100%;text-align:left;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--blue);font-weight:700}
+    .quick-bar{position:sticky;top:6px;z-index:15;display:flex;gap:6px;justify-content:center;margin:0 auto 10px;padding:6px;width:max-content;max-width:100%;border:1px solid #d7dfed;border-radius:13px;background:rgba(255,255,255,.94);box-shadow:0 5px 18px rgba(17,27,53,.12);backdrop-filter:blur(8px)}
+    .quick-bar button{padding:8px 10px;white-space:nowrap}
+    .quick-bar .quick-next{background:#2457e6;color:#fff;border-color:#2457e6}
+    .batch-footer{display:flex;justify-content:center;padding:5px 0 24px}
+    .batch-footer button{min-width:190px;padding:12px 18px;background:#2457e6;color:#fff;border-color:#2457e6;font-weight:750}
+    @media(max-width:600px){.quick-bar{top:4px}.quick-bar button{padding:8px;font-size:12px}}
   `;
   document.head.appendChild(style);
 
@@ -86,6 +92,20 @@
 
   const secondStat = document.querySelector(".stats .pill:nth-child(2)");
   if (secondStat) secondStat.textContent = `자체 재구성 문제 ${Q.length} · 외부 CBT 이동 없음`;
+
+  const main = document.querySelector("main.main");
+  const quickBar = document.createElement("nav");
+  quickBar.className = "quick-bar";
+  quickBar.setAttribute("aria-label", "빠른 학습 기능");
+  quickBar.innerHTML = `
+    <button type="button" onclick="showUnseen()">이어풀기</button>
+    <button type="button" class="quick-answer" onclick="toggleAnswers()">정답 모두 보기</button>
+    <button type="button" class="quick-next" onclick="nextUnseen()">다음 문제</button>`;
+  main?.insertBefore(quickBar, main.firstChild);
+
+  const batchFooter = document.createElement("div");
+  batchFooter.className = "batch-footer";
+  list.insertAdjacentElement("afterend", batchFooter);
 
   const progressEntries = () => Object.values(window.studyProgress || {});
   const completedCount = () => progressEntries().length;
@@ -179,17 +199,10 @@
         ? `오답입니다. 정답은 ${symbols[question.a]}입니다.`
         : "정답입니다.";
     const supplement = window.getEnhancedExplanation?.(question) || "";
-    const choiceReview = answered
-      ? `<div class="choice-review"><b>선택지 확인</b><br>
-          내가 고른 답: ${symbols[selected]} ${question.opts[selected]}<br>
-          정답: ${symbols[question.a]} ${question.opts[question.a]}</div>`
-      : "";
-
     return `<div class="answer ${isWrong ? "wrong-answer" : ""}">
       <b class="answer-result">${result}</b>
       ${question.exp}
       ${supplement ? `<div class="explanation-detail"><strong>시험 포인트</strong>${supplement}</div>` : ""}
-      ${choiceReview}
       <div class="src">${question.source}</div>
     </div>`;
   };
@@ -249,6 +262,11 @@
 
     const toggleButton = document.querySelector('button[onclick="toggleAnswers()"]');
     if (toggleButton) toggleButton.textContent = answers ? "정답 숨기기" : "정답 모두 보기";
+    const quickAnswer = document.querySelector(".quick-answer");
+    if (quickAnswer) quickAnswer.textContent = answers ? "정답 가리기" : "정답 보기";
+    batchFooter.innerHTML = currentView === "unseen"
+      ? `<button type="button" onclick="nextUnseen()">다음 미풀이 문제 보기</button>`
+      : "";
     updateProgressStat();
   };
 
@@ -258,6 +276,7 @@
     render();
   };
   window.showUnseen = () => setView("unseen");
+  window.nextUnseen = () => setView("unseen");
   window.showWrong = () => setView("wrong");
   window.showSeen = () => setView("seen");
   window.showStars = () => setView("stars");
