@@ -208,7 +208,8 @@
     const result=answers&&!answered?`정답 ${symbols[question.a]}`:isWrong?`오답입니다. 정답은 ${symbols[question.a]}입니다.`:"정답입니다.";
     const supplement=window.getEnhancedExplanation?.(question)||"";
     const baseExplanation=question.examDate?`<b>정답 보기:</b> ${symbols[question.a]} ${question.opts[question.a]}`:question.exp;
-    return `<div class="answer ${isWrong?"wrong-answer":""}"><b class="answer-result">${result}</b>${baseExplanation}${supplement?`<div class="explanation-detail"><strong>핵심 해설</strong>${supplement}</div>`:""}<div class="src">${question.source}</div></div>`;
+    const explanationLabel=question.examDate&&!window.hasReviewedExplanation?.(question)?"관련 개념 참고(문항별 정답 근거 검토 전)":"정답 근거";
+    return `<div class="answer ${isWrong?"wrong-answer":""}"><b class="answer-result">${result}</b>${baseExplanation}${supplement?`<div class="explanation-detail"><strong>${explanationLabel}</strong>${supplement}</div>`:""}<div class="src">${question.source}</div></div>`;
   };
   const progressBadge = (id) => {
     const entry=window.studyProgress?.[id]; if(!entry)return '<span class="progress-badge">처음 보는 문제</span>';

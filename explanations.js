@@ -1,4 +1,7 @@
 (() => {
+  const actualExplanations = {
+    "actual-20200822-01": "태양전지는 온도가 내려가면 단락전류(Isc)가 조금 감소하는 반면 개방전압(Voc)은 상승한다. 전압 상승의 영향이 더 크므로 일반적으로 저온에서 최대출력도 증가한다. 따라서 ‘온도가 내려가면 단락전류는 감소하고 개방전압은 상승한다’는 ①이 옳다.",
+  };
   const topicNotes = [
     [/STC|표준시험조건/, "STC는 일사강도 1,000 W/㎡, 셀 온도 25℃, 기준 태양광 스펙트럼 조건에서 모듈을 비교하기 위한 시험조건이다. 실제 현장 출력은 일사량·셀 온도·음영·오염·배선손실 때문에 명판출력과 달라질 수 있다."],
     [/온도계수|셀 온도|고온.*전압|저온.*전압/, "결정질 실리콘 모듈은 온도가 올라가면 전압이 크게 낮아져 최대출력이 감소하고, 저온에서는 개방전압이 상승한다. 따라서 저온에서는 인버터 최대 입력전압, 고온에서는 MPPT 최소 동작전압을 각각 확인해야 한다."],
@@ -41,8 +44,10 @@
   };
 
   window.getEnhancedExplanation = (question) => {
+    if (actualExplanations[question.id]) return actualExplanations[question.id];
     const searchable = [question.q, question.exp, ...question.opts].join(" ");
     const matched = topicNotes.find(([pattern]) => pattern.test(searchable));
     return matched?.[1] || tagFallback[question.tag] || "";
   };
+  window.hasReviewedExplanation = (question) => Boolean(actualExplanations[question.id]);
 })();
