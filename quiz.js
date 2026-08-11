@@ -121,7 +121,8 @@
     const previous = window.studyProgress[question.id] || {};
     const attempts = (previous.attempts || 0) + 1;
     const correct = optionIndex === question.a;
-    window.studyProgress[question.id] = {attempts, correct, lastAnswer: optionIndex, updatedAt: Date.now(), dueAt: correct ? Date.now() + scheduleDays(attempts) * 86400000 : Date.now()};
+    const wrongAttempts = (previous.wrongAttempts || 0) + (correct ? 0 : 1);
+    window.studyProgress[question.id] = {attempts, wrongAttempts, correct, lastAnswer: optionIndex, updatedAt: Date.now(), dueAt: correct ? Date.now() + scheduleDays(attempts) * 86400000 : Date.now()};
   };
 
   const updateProgressStat = () => {
@@ -145,7 +146,7 @@
     if (view === "unseen") return preferredOrder(Q.filter((q) => !progress[q.id]));
     if (view === "due") return Q.filter((q) => progress[q.id]?.correct && (progress[q.id].dueAt || 0) <= Date.now());
     if (view === "wrong") return Q.filter((q) => progress[q.id] && !progress[q.id].correct);
-    if (view === "repeated") return Q.filter((q) => progress[q.id] && !progress[q.id].correct && (progress[q.id].attempts || 0) >= 2);
+    if (view === "repeated") return Q.filter((q) => progress[q.id] && !progress[q.id].correct && (progress[q.id].wrongAttempts || 0) >= 2);
     if (view === "seen") return Q.filter((q) => progress[q.id]);
     if (view === "stars") return Q.filter((q) => stars.has(q.id));
     if (view === "year") return buildYearSet(year);
@@ -191,7 +192,7 @@
   };
   const progressBadge = (id) => {
     const entry=window.studyProgress?.[id]; if(!entry)return '<span class="progress-badge">처음 보는 문제</span>';
-    return `<span class="progress-badge ${entry.correct?"":"wrong"}">${entry.attempts||1}회 · ${entry.correct?"최근 정답":(entry.attempts||1)>=2?"반복 오답":"최근 오답"}</span>`;
+    return `<span class="progress-badge ${entry.correct?"":"wrong"}">${entry.attempts||1}회 · ${entry.correct?"최근 정답":(entry.wrongAttempts||0)>=2?"반복 오답":"최근 오답"}</span>`;
   };
 
   window.answerQuestion = (id, optionIndex) => {
