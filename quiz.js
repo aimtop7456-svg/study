@@ -12,9 +12,18 @@
   let examMode = false;
   let examGraded = false;
   let scrollTimer;
-  const actualExams = window.ACTUAL_EXAMS || [];
+  const actualExams = [...(window.ACTUAL_EXAMS || [])].sort((a,b)=>b.date.localeCompare(a.date));
   const actualQuestions = actualExams.flatMap((exam) => exam.questions);
-  const allQuestions = [...Q, ...actualQuestions];
+  const actualCorpus = actualQuestions.map((q)=>`${q.q} ${q.opts.join(" ")}`).join(" ");
+  const wordFrequency = new Map();
+  (actualCorpus.match(/[가-힣A-Za-z0-9]{2,}/g)||[]).forEach((word)=>wordFrequency.set(word,(wordFrequency.get(word)||0)+1));
+  const frequencyScore = (q) => [...new Set(`${q.q} ${q.opts.join(" ")}`.match(/[가-힣A-Za-z0-9]{2,}/g)||[])].reduce((sum,word)=>sum+(wordFrequency.get(word)||0),0);
+  const mockCandidates = [...Q];
+  const mockBank = [...new Set(mockCandidates.map((q)=>q.subject))].flatMap((subject)=>
+    mockCandidates.filter((q)=>q.subject===subject).sort((a,b)=>frequencyScore(b)-frequencyScore(a)||a.id-b.id).slice(0,60),
+  );
+  const learningBank = [...actualQuestions, ...mockBank];
+  const allQuestions = learningBank;
   const questionById = (id) => allQuestions.find((q) => String(q.id) === String(id));
 
   window.studyProgress ||= JSON.parse(localStorage.getItem(PROGRESS_KEY) || "{}");
@@ -93,10 +102,10 @@
   const notices = [...document.querySelectorAll("main .notice")];
   const helpDetails = document.createElement("details");
   helpDetails.className = "compact-details";
-  helpDetails.innerHTML = `<summary>사용법·문제 구성·유형 기준</summary><div class="compact-details-body"><b>사용법:</b> 기본 화면은 미풀이 20문제이며, 선택하면 정답·오답 색상과 해설이 표시됩니다. 정답 문제는 간격 반복 일정에 따라 다시 제시됩니다.<br><b>문제 구성:</b> 자체 재구성 ${Q.length}문제이며 외부 CBT로 이동하지 않습니다.<div class="type-guide"><b>유형:</b> 빈출=반복 출제 포인트 · 핵심=주요 이론·설계 · 안전=감전·화재·보호 · 기초=용어·원리 · 계산=공식·수치 · 회독=빠른 복습</div></div>`;
+  helpDetails.innerHTML = `<summary>사용법·문제 구성·유형 기준</summary><div class="compact-details-body"><b>사용법:</b> 기본 이어풀기는 최신 실제 기출부터 과거 회차 순으로 20문제씩 제시합니다. 답을 선택하면 실제 기출과 모의고사 모두 정답·오답 색상과 해설이 즉시 표시됩니다. 실제 기출 960문제를 마치면 빈출 모의고사 240문제가 이어집니다.<br><b>문제 구성:</b> 제공된 교사용 PDF 실제 기출 12회·960문제와, 기출의 반복 개념을 기준으로 선별한 모의고사 3회·240문제입니다. 외부 CBT로 이동하지 않습니다.<div class="type-guide"><b>유형:</b> 빈출=반복 출제 포인트 · 핵심=주요 이론·설계 · 안전=감전·화재·보호 · 기초=용어·원리 · 계산=공식·수치 · 회독=빠른 복습</div></div>`;
   const archiveDetails = document.createElement("details");
   archiveDetails.className = "compact-details";
-  archiveDetails.innerHTML = `<summary>기출 경향 기반 재구성 세트 A~G</summary><div class="compact-details-body">실제 연도별 원문이 아닌 내부 80문제 모의세트입니다.<div class="year-grid">${[2014,2015,2016,2017,2018,2019,2020].map((year,i)=>`<button class="year-button" onclick="openYearSet(${year})">경향 기반 재구성 세트 ${"ABCDEFG"[i]} · 80문제</button>`).join("")}</div></div>`;
+  archiveDetails.innerHTML = `<summary>빈출 기반 모의고사 3회 · 240문제</summary><div class="compact-details-body">12회 실제 기출에서 자주 등장한 용어와 개념을 기준으로 선별한 재구성 문제입니다.<div class="year-grid">${[0,1,2].map((set)=>`<button class="year-button" onclick="openPracticeSet(${set})">빈출 모의고사 ${set+1}회 · 80문제</button>`).join("")}</div></div>`;
   const actualDetails = document.createElement("details");
   actualDetails.className = "compact-details";
   actualDetails.innerHTML = `<summary>실제 기출 원문 12회 · 960문제</summary><div class="compact-details-body">첨부한 교사용 PDF의 문제·보기·정답입니다. 재구성 모의고사와 별도로 기록됩니다.<div class="year-grid">${actualExams.map((exam)=>`<button class="year-button" onclick="openActualExam('${exam.date}')">${exam.title} 실제 기출 · 80문제</button>`).join("")}</div></div>`;
@@ -107,7 +116,7 @@
   notices.forEach((notice) => notice.remove());
 
   const secondStat = document.querySelector(".stats .pill:nth-child(2)");
-  if (secondStat) secondStat.textContent = `자체 재구성 문제 ${Q.length}`;
+  if (secondStat) secondStat.textContent = `실제 기출 960 + 빈출 모의 240`;
 
   const batchFooter = document.createElement("div");
   batchFooter.className = "batch-footer";
@@ -118,9 +127,9 @@
   statsDialog.innerHTML = `<section class="stats-card"><button class="stats-close" onclick="document.getElementById('stats-dialog').close()" aria-label="통계 닫기">닫기</button><h2>학습 통계</h2><div id="stats-content"></div></section>`;
   document.body.appendChild(statsDialog);
 
-  const progressEntries = () => Object.values(window.studyProgress || {});
+  const progressEntries = () => learningBank.map((q) => window.studyProgress?.[q.id]).filter(Boolean);
   const completedCount = () => progressEntries().length;
-  const reconstructedCompleted = () => Q.filter((q) => window.studyProgress[q.id]).length;
+  const reconstructedCompleted = () => mockBank.filter((q) => window.studyProgress[q.id]).length;
   const actualCompleted = () => actualQuestions.filter((q) => window.studyProgress[q.id]).length;
   const wrongCount = () => progressEntries().filter((entry) => entry && !entry.correct).length;
   const dueCount = () => progressEntries().filter((entry) => entry?.correct && (entry.dueAt || 0) <= Date.now()).length;
@@ -140,7 +149,7 @@
 
   const updateProgressStat = () => {
     const thirdStat = document.querySelector(".stats .pill:nth-child(3)");
-    if (thirdStat) thirdStat.textContent = `재구성 ${reconstructedCompleted()}/${Q.length} · 실제 기출 ${actualCompleted()}/${actualQuestions.length} · 오답 ${wrongCount()} · ${window.cloudSyncActive ? "클라우드 동기화" : "이 기기에 저장"}`;
+    if (thirdStat) thirdStat.textContent = `실제 기출 ${actualCompleted()}/960 · 빈출 모의 ${reconstructedCompleted()}/240 · 오답 ${wrongCount()} · ${window.cloudSyncActive ? "클라우드 동기화" : "이 기기에 저장"}`;
     document.querySelectorAll(".study-nav").forEach((button) => button.classList.toggle("active", button.dataset.view === currentView));
   };
 
@@ -149,14 +158,11 @@
     const groups = {}; Q.forEach((q) => (groups[q.subject] ??= []).push(q));
     return Object.values(groups).flatMap((group) => [...group].sort((a,b)=>seededScore(a.id,year)-seededScore(b.id,year)).slice(0,20));
   };
-  const buildMock = () => {
-    const groups = {}; Q.forEach((q) => (groups[q.subject] ??= []).push(q));
-    return Object.values(groups).flatMap((group) => [...group].sort(()=>Math.random()-.5).slice(0,20)).sort(()=>Math.random()-.5);
-  };
+  const buildMock = (setIndex=0) => mockBank.slice(setIndex*80,setIndex*80+80);
 
   const poolFor = (view, year) => {
     const progress = window.studyProgress || {};
-    if (view === "unseen") return preferredOrder(Q.filter((q) => !progress[q.id]));
+    if (view === "unseen") return learningBank.filter((q) => !progress[q.id]);
     if (view === "due") return allQuestions.filter((q) => progress[q.id]?.correct && (progress[q.id].dueAt || 0) <= Date.now());
     if (view === "wrong") return allQuestions.filter((q) => progress[q.id] && !progress[q.id].correct);
     if (view === "repeated") return allQuestions.filter((q) => progress[q.id] && !progress[q.id].correct && (progress[q.id].wrongAttempts || 0) >= 2);
@@ -164,18 +170,17 @@
     if (view === "stars") return allQuestions.filter((q) => stars.has(q.id));
     if (view === "actual") return actualExams.find((exam) => exam.date === String(year))?.questions || [];
     if (view === "year") return buildYearSet(year);
-    if (view === "mock") return buildMock();
-    return [...Q];
+    if (view === "mock") return buildMock(Number(year)||0);
+    return [...learningBank];
   };
 
-  const pageSize = () => ["unseen","due"].includes(currentView) ? PAGE_SIZE : LIST_PAGE_SIZE;
+  const pageSize = () => ["unseen","due","actual","mock"].includes(currentView) ? PAGE_SIZE : LIST_PAGE_SIZE;
   const filteredPool = () => currentPool.filter((q) =>
     (cat.value === "all" || q.subject === cat.value) &&
     (tag.value === "all" || q.tag === tag.value) &&
     (!search.value || JSON.stringify(q).includes(search.value)),
   );
   const selectPage = () => {
-    if (examMode) { data = [...currentPool]; return; }
     const size = pageSize(), source = filteredPool();
     data = source.slice(pageIndex * size, pageIndex * size + size);
   };
@@ -183,7 +188,7 @@
   const persistSession = () => localStorage.setItem(SESSION_KEY, JSON.stringify({view:currentView,year:currentYear,ids:data.map(q=>q.id),scrollY:window.scrollY,examMode,examGraded,updatedAt:Date.now()}));
 
   const setView = (view, year = null) => {
-    currentView=view; currentYear=year; pageIndex=0; examMode=["mock","year","actual"].includes(view); examGraded=false; resetControls();
+    currentView=view; currentYear=year; pageIndex=0; examMode=false; examGraded=false; resetControls();
     currentPool=poolFor(view,year); selectPage(); render(); scrollTo(0,0); persistSession();
   };
 
@@ -201,8 +206,9 @@
     if (!reveal) return "";
     const isWrong=answered&&selected!==question.a;
     const result=answers&&!answered?`정답 ${symbols[question.a]}`:isWrong?`오답입니다. 정답은 ${symbols[question.a]}입니다.`:"정답입니다.";
-    const supplement=question.examDate?"":window.getEnhancedExplanation?.(question)||"";
-    return `<div class="answer ${isWrong?"wrong-answer":""}"><b class="answer-result">${result}</b>${question.exp}${supplement?`<div class="explanation-detail"><strong>시험 포인트</strong>${supplement}</div>`:""}<div class="src">${question.source}</div></div>`;
+    const supplement=window.getEnhancedExplanation?.(question)||"";
+    const baseExplanation=question.examDate?`<b>정답 보기:</b> ${symbols[question.a]} ${question.opts[question.a]}`:question.exp;
+    return `<div class="answer ${isWrong?"wrong-answer":""}"><b class="answer-result">${result}</b>${baseExplanation}${supplement?`<div class="explanation-detail"><strong>핵심 해설</strong>${supplement}</div>`:""}<div class="src">${question.source}</div></div>`;
   };
   const progressBadge = (id) => {
     const entry=window.studyProgress?.[id]; if(!entry)return '<span class="progress-badge">처음 보는 문제</span>';
@@ -222,13 +228,11 @@
     const answeredInBatch=data.filter((q)=>selectedAnswers.has(q.id)||(!examMode&&window.studyProgress[q.id])).length;
     document.getElementById("count").textContent=`표시 ${shown.length}문제 · 현재 묶음 ${answeredInBatch}/${data.length} · 전체 학습 ${completedCount()}/${allQuestions.length}`;
     list.className=answers?"":"quiz-mode";
-    const examTitle=currentView==="mock"?"재구성 실전 80문제":currentView==="actual"?`${currentYear.slice(0,4)}-${currentYear.slice(4,6)}-${currentYear.slice(6)} 실제 기출 원문`:"기출 경향 기반 재구성 세트";
-    const banner=examMode?`<div class="exam-banner ${currentView==="actual"?"actual-exam-banner":""}"><b>${examTitle}</b> · 답을 모두 고른 뒤 아래의 ‘채점하기’를 누르세요. 채점 전에는 정답이 표시되지 않습니다.</div>`:"";
+    const examTitle=currentView==="mock"?`빈출 모의고사 ${Number(currentYear)+1}회`:currentView==="actual"?`${currentYear.slice(0,4)}-${currentYear.slice(4,6)}-${currentYear.slice(6)} 실제 기출 원문`:"";
+    const banner=["mock","actual"].includes(currentView)?`<div class="exam-banner ${currentView==="actual"?"actual-exam-banner":""}"><b>${examTitle}</b> · 보기를 선택하면 즉시 채점되고 핵심 해설이 표시됩니다.</div>`:"";
     list.innerHTML=banner+(shown.length?shown.map((q,i)=>{const originalImage=q.image?`<img class="actual-source-image" loading="lazy" src="${q.image}" alt="${q.source} ${q.qnum}번 원문 이미지">`:"";return `<article class="q"><div class="meta"><span class="tag">${q.subject}</span><span class="tag">${q.tag}</span><span>#${q.qnum||q.id}</span>${progressBadge(q.id)}<button class="star" onclick='star(${JSON.stringify(q.id)})' aria-label="${q.qnum||q.id}번 문제 즐겨찾기 ${stars.has(q.id)?"해제":"추가"}">${stars.has(q.id)?"★":"☆"}</button></div><div class="qt">Q${i+1}. ${q.q}</div>${q.hasFigure?originalImage:""}${q.opts.map((o,j)=>optionMarkup(q,o,j)).join("")}${answerMarkup(q)}${q.image&&!q.hasFigure?`<details class="source-details"><summary>PDF 원문 이미지 확인</summary>${originalImage}</details>`:""}</article>`;}).join(""):`<div class="empty">${currentView==="unseen"?"미풀이 문제를 모두 완료했습니다.":"조건에 맞는 문제가 없습니다."}</div>`);
     const totalPages=Math.max(1,Math.ceil(filteredPool().length/pageSize()));
-    if(examMode&&!examGraded) batchFooter.innerHTML=`<div class="batch-progress">선택 ${selectedAnswers.size}/${data.length}</div><button class="primary-next" onclick="submitExam()">채점하기</button>`;
-    else if(examMode) batchFooter.innerHTML=`<div class="batch-progress">채점 완료 · ${selectedAnswers.size}문제 응답</div><button class="primary-next" onclick="showUnseen()">이어풀기</button>`;
-    else batchFooter.innerHTML=`<div class="batch-progress">현재 묶음 ${answeredInBatch}/${data.length}${totalPages>1?` · ${pageIndex+1}/${totalPages}쪽`:""}</div>${pageIndex>0?'<button onclick="previousPage()">이전</button>':""}<button class="primary-next" onclick="nextPage()">다음 문제</button>`;
+    batchFooter.innerHTML=`<div class="batch-progress">현재 묶음 ${answeredInBatch}/${data.length}${totalPages>1?` · ${pageIndex+1}/${totalPages}쪽`:""}</div>${pageIndex>0?'<button onclick="previousPage()">이전</button>':""}<button class="primary-next" onclick="nextPage()">다음 문제</button>`;
     document.querySelectorAll('button[onclick="toggleAnswers()"]').forEach((b)=>{b.textContent=answers?"정답 가리기":"정답 보기";b.disabled=examMode&&!examGraded;});
     updateProgressStat(); persistSession();
   };
@@ -244,10 +248,10 @@
   };
   window.previousPage = () => {if(pageIndex>0){pageIndex--;selectPage();selectedAnswers.clear();render();scrollTo(0,quickBar.offsetTop);}};
   window.toggleAnswers = () => {if(examMode&&!examGraded)return;answers=!answers;if(!answers&&!examMode)selectedAnswers.clear();render();};
-  window.showUnseen=()=>setView("unseen"); window.showDue=()=>setView("due"); window.showWrong=()=>setView("wrong"); window.showRepeatedWrong=()=>setView("repeated"); window.showSeen=()=>setView("seen"); window.showStars=()=>setView("stars"); window.resetAll=()=>setView("all"); window.mock=()=>setView("mock"); window.openYearSet=(year)=>setView("year",year); window.openActualExam=(date)=>setView("actual",date);
+  window.showUnseen=()=>setView("unseen"); window.showDue=()=>setView("due"); window.showWrong=()=>setView("wrong"); window.showRepeatedWrong=()=>setView("repeated"); window.showSeen=()=>setView("seen"); window.showStars=()=>setView("stars"); window.resetAll=()=>setView("all"); window.mock=()=>setView("mock",0); window.openPracticeSet=(set)=>setView("mock",set); window.openYearSet=(year)=>setView("mock",0); window.openActualExam=(date)=>setView("actual",date);
   window.refreshCurrentStudyView=()=>{currentPool=poolFor(currentView,currentYear);selectPage();render();};
   window.showStats = () => {
-    const groups=(key)=>[...new Set(Q.map(q=>q[key]))].map(name=>{const qs=Q.filter(q=>q[key]===name),done=qs.filter(q=>window.studyProgress[q.id]),correct=qs.filter(q=>window.studyProgress[q.id]?.correct).length;return {name,done,correct,total:qs.length};});
+    const groups=(key)=>[...new Set(mockBank.map(q=>q[key]))].map(name=>{const qs=mockBank.filter(q=>q[key]===name),done=qs.filter(q=>window.studyProgress[q.id]),correct=qs.filter(q=>window.studyProgress[q.id]?.correct).length;return {name,done,correct,total:qs.length};});
     const block=(title,rows)=>`<div class="stat-box"><b>${title}</b>${rows.map(r=>`<div class="stat-line"><span>${r.name}</span><span>${r.done}/${r.total} · 정답률 ${r.done?Math.round(r.correct/r.done*100):0}%</span></div>`).join("")}</div>`;
     const actualRows=actualExams.map((exam)=>{const done=exam.questions.filter(q=>window.studyProgress[q.id]),correct=exam.questions.filter(q=>window.studyProgress[q.id]?.correct).length;return{name:exam.title,done:done.length,correct,total:80};});
     document.getElementById("stats-content").innerHTML=`<div class="stats-grid">${block("재구성 과목별",groups("subject"))}${block("재구성 유형별",groups("tag"))}${block("실제 기출 회차별",actualRows)}</div>`; statsDialog.showModal();
@@ -260,7 +264,7 @@
   const restore = () => {
     try { const saved=JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); if(!saved||Date.now()-saved.updatedAt>30*86400000)return false;
       const restored=saved.ids.map(id=>questionById(id)).filter(Boolean); if(!restored.length)return false;
-      currentView=saved.view||"unseen";currentYear=saved.year||null;examMode=Boolean(saved.examMode);examGraded=Boolean(saved.examGraded);currentPool=[...restored];data=[...restored];answers=false;render();requestAnimationFrame(()=>scrollTo(0,saved.scrollY||0));return true;
+      currentView=saved.view||"unseen";currentYear=saved.year||null;examMode=false;examGraded=false;currentPool=[...restored];data=[...restored];answers=false;render();requestAnimationFrame(()=>scrollTo(0,saved.scrollY||0));return true;
     } catch { return false; }
   };
   if(!restore())setView("unseen");
