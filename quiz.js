@@ -247,6 +247,11 @@
     saveProgress(); examGraded=true; window.dispatchEvent(new CustomEvent("study-progress-changed")); render();
   };
   window.nextPage = () => {
+    const nextUnansweredIndex=data.findIndex((question)=>!window.studyProgress?.[question.id]&&!selectedAnswers.has(question.id));
+    if(nextUnansweredIndex>=0){
+      document.querySelectorAll("article.q")[nextUnansweredIndex]?.scrollIntoView({behavior:"smooth",block:"start"});
+      return;
+    }
     if(currentView==="unseen"||currentView==="due"){currentPool=poolFor(currentView,currentYear);pageIndex=0;selectPage();selectedAnswers.clear();render();scrollTo(0,quickBar.offsetTop);return;}
     const total=Math.ceil(filteredPool().length/pageSize());if(pageIndex<total-1){pageIndex++;selectPage();selectedAnswers.clear();render();scrollTo(0,quickBar.offsetTop);}
   };
