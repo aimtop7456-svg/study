@@ -12,7 +12,7 @@
 
   const style = document.createElement("style");
   style.textContent = `
-    button.opt{display:block;width:100%;text-align:left;color:inherit;cursor:pointer}
+    button.opt{display:block;width:100%;min-height:44px;text-align:left;color:inherit;cursor:pointer}
     button.opt:hover:not(:disabled){border-color:#a8b6d2;background:#f0f3f9}
     button.opt:focus-visible{outline:3px solid rgba(36,87,230,.25);outline-offset:2px}
     button.opt:disabled{cursor:default;opacity:1}
@@ -49,6 +49,14 @@
   });
 
   const firstNotice = document.querySelector(".notice");
+  if (firstNotice) {
+    firstNotice.innerHTML = `<b>사용법:</b> 기본 화면에는 아직 풀지 않은 문제 20개가 표시됩니다.
+      보기를 누르면 정답은 녹색, 선택한 오답은 붉은색으로 표시되고 해설이 열립니다.
+      풀어본 문제와 오답은 자동 저장되며 ★는 다시 볼 문제를 모아 둡니다.<br>
+      <b>문제 구성:</b> 사이트 안에서 바로 풀 수 있는 자체 재구성 문제 총 ${Q.length}개입니다.
+      실제 기출 원문을 그대로 복제한 자료가 아니라 출제기준과 공개 기출의 핵심 개념을 바탕으로 만든
+      기본·개념 응용·계산·설계 연습문제이며, 외부 CBT 사이트로 이동하지 않습니다.`;
+  }
   firstNotice?.insertAdjacentHTML(
     "beforeend",
     `<div class="type-guide"><b>유형 기준:</b>
@@ -77,7 +85,7 @@
   }
 
   const secondStat = document.querySelector(".stats .pill:nth-child(2)");
-  if (secondStat) secondStat.textContent = "자체 학습문제 280 · 외부 CBT 이동 없음";
+  if (secondStat) secondStat.textContent = `자체 재구성 문제 ${Q.length} · 외부 CBT 이동 없음`;
 
   const progressEntries = () => Object.values(window.studyProgress || {});
   const completedCount = () => progressEntries().length;
@@ -257,6 +265,10 @@
   window.mock = () => setView("mock");
   window.openYearSet = (year) => setView("year", year);
   window.refreshCurrentStudyView = () => setView(currentView, currentYear);
+
+  cat.onchange = () => render();
+  tag.onchange = () => render();
+  search.oninput = () => render();
 
   setView("unseen");
 })();
