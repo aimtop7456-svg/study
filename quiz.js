@@ -270,11 +270,7 @@
   cat.onchange=applyFilter;tag.onchange=applyFilter;search.oninput=applyFilter;
   addEventListener("scroll",()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(persistSession,180);},{passive:true});
 
-  const restore = () => {
-    try { const saved=JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); if(!saved||Date.now()-saved.updatedAt>30*86400000)return false;
-      const restored=saved.ids.map(id=>questionById(id)).filter(Boolean); if(!restored.length)return false;
-      currentView=saved.view||"unseen";currentYear=saved.year||null;examMode=false;examGraded=false;currentPool=[...restored];data=[...restored];answers=false;render();requestAnimationFrame(()=>scrollTo(0,saved.scrollY||0));return true;
-    } catch { return false; }
-  };
-  if(!restore())setView("unseen");
+  // 새로 접속할 때는 마지막 화면을 재현하지 않고 항상 미풀이 문제부터 시작한다.
+  // 오답·풀어본 문제·복습 예정은 사용자가 해당 메뉴를 선택했을 때만 연다.
+  setView("unseen");
 })();
